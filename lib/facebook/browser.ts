@@ -1,9 +1,15 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium, type BrowserContext } from "playwright";
+import { chromium, type BrowserContext, type Page } from "playwright";
 
-import type { FacebookSessionStatus } from "./session";
+import type { FacebookGroup } from "../groups.ts";
+import {
+  type FacebookPostErrorCode,
+  isFacebookManualActionUrl,
+} from "./post.ts";
+import { facebookComposerNames } from "./selectors.ts";
+import type { FacebookSessionStatus } from "./session.ts";
 
 const facebookUrl = "https://www.facebook.com/";
 export const facebookBrowserChannel = "chrome";
@@ -13,7 +19,34 @@ const profileDirectory = join(
   "facebook",
 );
 
-let activeContext: BrowserContext | null = null;
+type FacebookRuntime = {
+  context: BrowserContext | null;
+  isPosting: boolean;
+};
+
+const globalRuntime = globalThis as typeof globalThis & {
+  __facebookPosterRuntime?: FacebookRuntime;
+};
+const runtime = (globalRuntime.__facebookPosterRuntime ??= {
+  context: null,
+  isPosting: false,
+});
+
+type FacebookPostImage = {
+  buffer: Buffer;
+  mimeType: string;
+  name: string;
+};
+
+export class FacebookPostingError extends Error {
+  readonly code: FacebookPostErrorCode;
+
+  constructor(code: FacebookPostErrorCode, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "FacebookPostingError";
+  }
+}
 
 export function hasSavedFacebookProfile(directory = profileDirectory) {
   return existsSync(join(directory, "Local State"));
@@ -22,13 +55,13 @@ export function hasSavedFacebookProfile(directory = profileDirectory) {
 export function getFacebookSessionStatus(): FacebookSessionStatus {
   return {
     hasSavedProfile: hasSavedFacebookProfile(),
-    isBrowserOpen: activeContext !== null,
+    isBrowserOpen: runtime.context !== null,
   };
 }
 
 export async function openFacebookLogin(): Promise<FacebookSessionStatus> {
-  if (activeContext) {
-    const page = activeContext.pages()[0] ?? (await activeContext.newPage());
+  if (runtime.context) {
+    const page = runtime.context.pages()[0] ?? (await runtime.context.newPage());
     await page.bringToFront();
     return getFacebookSessionStatus();
   }
@@ -40,9 +73,9 @@ export async function openFacebookLogin(): Promise<FacebookSessionStatus> {
     headless: false,
   });
 
-  activeContext = context;
+  runtime.context = context;
   context.on("close", () => {
-    if (activeContext === context) activeContext = null;
+    if (runtime.context === context) runtime.context = null;
   });
 
   const page = context.pages()[0] ?? (await context.newPage());
@@ -57,4 +90,112 @@ export async function openFacebookLogin(): Promise<FacebookSessionStatus> {
   }
 
   return getFacebookSessionStatus();
+}
+
+function assertNoManualAction(page: Page) {
+  if (isFacebookManualActionUrl(page.url())) {
+    throw new FacebookPostingError(
+      "MANUAL_ACTION_REQUIRED",
+      "Facebook meminta login atau verifikasi manual.",
+    );
+  }
+}
+
+export async function postToFacebookGroup(input: {
+  caption: string;
+  group: FacebookGroup;
+  images: FacebookPostImage[];
+}) {
+  if (!runtime.context) {
+    throw new FacebookPostingError(
+      "BROWSER_NOT_OPEN",
+      "Buka window Facebook terlebih dahulu.",
+    );
+  }
+  if (runtime.isPosting) {
+    throw new FacebookPostingError(
+      "POST_FAILED",
+      "Posting lain sedang berjalan.",
+    );
+  }
+
+  runtime.isPosting = true;
+  try {
+    const page = runtime.context.pages()[0] ?? (await runtime.context.newPage());
+    await page.bringToFront();
+
+    console.log(`[Facebook] Opening ${input.group.name}`);
+    await page.goto(input.group.url, {
+      timeout: 30_000,
+      waitUntil: "domcontentloaded",
+    });
+    assertNoManualAction(page);
+
+    // Prefer accessible roles and names so selectors match the visible UI.
+    // Source: https://playwright.dev/docs/locators#locate-by-role
+    const composerTrigger = page.getByRole("button", {
+      name: facebookComposerNames.open,
+      exact: true,
+    });
+    try {
+      await composerTrigger.click({ timeout: 20_000 });
+    } catch {
+      assertNoManualAction(page);
+      throw new FacebookPostingError(
+        "COMPOSER_NOT_FOUND",
+        "Composer Facebook tidak ditemukan atau group tidak mengizinkan posting.",
+      );
+    }
+
+    const dialog = page
+      .getByRole("dialog", {
+        name: facebookComposerNames.dialog,
+        exact: true,
+      })
+      .first();
+    await dialog
+      .getByRole("status", { name: facebookComposerNames.loading })
+      .first()
+      .waitFor({ state: "hidden", timeout: 20_000 });
+    console.log("[Facebook] Composer opened");
+
+    await dialog.getByRole("textbox").fill(input.caption);
+    await dialog
+      .getByRole("button", {
+        name: facebookComposerNames.photo,
+        exact: true,
+      })
+      .click();
+
+    console.log(`[Facebook] Uploading ${input.images.length} images`);
+    // Source: https://playwright.dev/docs/input#upload-files
+    const fileInput = dialog.locator('input[type="file"]');
+    await fileInput.waitFor({ state: "attached", timeout: 20_000 });
+    await fileInput.setInputFiles(input.images);
+
+    console.log("[Facebook] Posting");
+    await dialog
+      .getByRole("button", {
+        name: facebookComposerNames.submit,
+        exact: true,
+      })
+      .click({ timeout: 90_000 });
+    await dialog.waitFor({ state: "hidden", timeout: 90_000 });
+    assertNoManualAction(page);
+    console.log("[Facebook] Success");
+  } catch (error) {
+    if (error instanceof FacebookPostingError) throw error;
+    if (!runtime.context) {
+      throw new FacebookPostingError(
+        "BROWSER_NOT_OPEN",
+        "Window Facebook tertutup. Buka kembali sebelum melanjutkan.",
+      );
+    }
+    throw new FacebookPostingError(
+      "POST_FAILED",
+      "Posting gagal. Periksa window Facebook lalu coba lagi.",
+    );
+  } finally {
+    runtime.isPosting = false;
+  }
 }

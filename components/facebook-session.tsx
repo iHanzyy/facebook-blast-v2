@@ -56,7 +56,7 @@ export function FacebookSession() {
 
     const interval = window.setInterval(() => {
       fetchSessionStatus("GET").then(setStatus).catch(() => undefined);
-    }, 2_000);
+    }, 10_000);
 
     return () => window.clearInterval(interval);
   }, [status?.isBrowserOpen]);
