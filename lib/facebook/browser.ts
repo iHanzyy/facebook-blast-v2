@@ -1,7 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium, type BrowserContext, type Page } from "playwright";
+import {
+  chromium,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "playwright";
 
 import type { FacebookGroup } from "../groups.ts";
 import {
@@ -32,11 +37,25 @@ const runtime = (globalRuntime.__facebookPosterRuntime ??= {
   isPosting: false,
 });
 
-type FacebookPostImage = {
+export type FacebookPostImage = {
   buffer: Buffer;
   mimeType: string;
   name: string;
 };
+
+export async function setImagesThroughFileChooser(
+  page: Page,
+  trigger: Locator,
+  images: FacebookPostImage[],
+) {
+  // Register the listener before clicking so Chrome never opens a native dialog.
+  // Source: https://playwright.dev/docs/input#upload-files
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent("filechooser", { timeout: 20_000 }),
+    trigger.click({ timeout: 20_000 }),
+  ]);
+  await fileChooser.setFiles(images);
+}
 
 export class FacebookPostingError extends Error {
   readonly code: FacebookPostErrorCode;
@@ -160,18 +179,15 @@ export async function postToFacebookGroup(input: {
     console.log("[Facebook] Composer opened");
 
     await dialog.getByRole("textbox").fill(input.caption);
-    await dialog
-      .getByRole("button", {
+    console.log(`[Facebook] Uploading ${input.images.length} images`);
+    await setImagesThroughFileChooser(
+      page,
+      dialog.getByRole("button", {
         name: facebookComposerNames.photo,
         exact: true,
-      })
-      .click();
-
-    console.log(`[Facebook] Uploading ${input.images.length} images`);
-    // Source: https://playwright.dev/docs/input#upload-files
-    const fileInput = dialog.locator('input[type="file"]');
-    await fileInput.waitFor({ state: "attached", timeout: 20_000 });
-    await fileInput.setInputFiles(input.images);
+      }),
+      input.images,
+    );
 
     console.log("[Facebook] Posting");
     await dialog
