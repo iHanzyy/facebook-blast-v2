@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { imageAccept, isSupportedImageType } from "@/lib/images";
+import { removeImagePreview } from "@/lib/image-previews";
 
 type ImagePreview = {
   file: File;
@@ -52,12 +53,10 @@ export function ImagePicker({
 
   function removePreview(url: string) {
     URL.revokeObjectURL(url);
-    setPreviews((current) => {
-      const next = current.filter((preview) => preview.url !== url);
-      previewsRef.current = next;
-      onFilesChange(next.map(({ file }) => file));
-      return next;
-    });
+    const next = removeImagePreview(previewsRef.current, url);
+    previewsRef.current = next;
+    setPreviews(next);
+    onFilesChange(next.map(({ file }) => file));
   }
 
   return (
