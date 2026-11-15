@@ -5,6 +5,7 @@ export type FacebookGroup = {
   id: string;
   name: string;
   url: string;
+  category: "iphone" | "laptop";
   enabled: boolean;
   notes: string;
 };
@@ -24,6 +25,7 @@ function parseGroup(value: unknown, index: number): FacebookGroup {
     typeof value.id !== "string" ||
     typeof value.name !== "string" ||
     typeof value.url !== "string" ||
+    (value.category !== "iphone" && value.category !== "laptop") ||
     typeof enabled !== "boolean" ||
     typeof notes !== "string"
   ) {
@@ -43,7 +45,14 @@ function parseGroup(value: unknown, index: number): FacebookGroup {
     throw new Error(`Invalid group URL at index ${index}.`);
   }
 
-  return { id: value.id, name: value.name, url: value.url, enabled, notes };
+  return {
+    id: value.id,
+    name: value.name,
+    url: value.url,
+    category: value.category,
+    enabled,
+    notes,
+  };
 }
 
 export function parseGroups(value: unknown): FacebookGroup[] {

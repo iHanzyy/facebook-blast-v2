@@ -24,10 +24,10 @@ async function fetchSessionStatus(method: "GET" | "POST") {
 }
 
 function sessionLabel(status: FacebookSessionStatus | null) {
-  if (!status) return "Checking local profile...";
-  if (status.isBrowserOpen) return "Login window open";
-  if (status.hasSavedProfile) return "Profile saved locally";
-  return "Not connected";
+  if (!status) return "Memeriksa profil lokal...";
+  if (status.isBrowserOpen) return "Chrome siap digunakan";
+  if (status.hasSavedProfile) return "Profil tersimpan, Chrome belum dibuka";
+  return "Belum terhubung";
 }
 
 export function FacebookSession() {
@@ -77,17 +77,17 @@ export function FacebookSession() {
   const isOpen = status?.isBrowserOpen === true;
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+    <section className="border border-line bg-panel px-4 py-4 sm:px-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-medium">Facebook Session</h2>
+          <h2 className="text-sm font-semibold text-ink">Koneksi Facebook</h2>
           <p
-            className="mt-1 flex items-center gap-2 text-xs text-slate-400"
+            className="mt-1 flex items-center gap-2 text-xs text-muted"
             role="status"
           >
             <span
               className={`size-2 shrink-0 rounded-full ${
-                isOpen ? "bg-emerald-400" : "bg-slate-600"
+                isOpen ? "bg-emerald-500" : "bg-slate-300"
               }`}
               aria-hidden="true"
             />
@@ -98,17 +98,16 @@ export function FacebookSession() {
           type="button"
           onClick={handleOpenLogin}
           disabled={!status || isOpening || isOpen}
-          className="min-h-11 shrink-0 rounded-md border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:text-slate-500 disabled:hover:border-slate-700 disabled:hover:bg-transparent"
+          className="min-h-10 shrink-0 border border-line px-3 py-2 text-xs font-semibold text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:border-line disabled:hover:bg-transparent"
         >
-          {isOpening ? "Opening..." : isOpen ? "Window Open" : "Open Login"}
+          {isOpening ? "Membuka..." : isOpen ? "Chrome terbuka" : "Buka Chrome"}
         </button>
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">
-        Login manual di Google Chrome terpisah. Aplikasi tidak membaca password;
-        status profil tersimpan bukan verifikasi bahwa Facebook masih login.
+      <p className="mt-3 text-xs leading-5 text-muted">
+        Login dilakukan manual di Chrome. Aplikasi tidak membaca atau menyimpan password.
       </p>
       {error ? (
-        <p className="mt-3 text-xs leading-5 text-rose-300" role="alert">
+        <p className="mt-3 text-xs leading-5 text-rose-700" role="alert">
           {error}
         </p>
       ) : null}

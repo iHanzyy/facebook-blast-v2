@@ -1,8 +1,10 @@
 import {
   type FacebookPostError,
+  type FacebookPostErrorCode,
   type ImageMetadata,
   validateSinglePostInput,
 } from "./post.ts";
+import type { FacebookGroup } from "../groups.ts";
 
 export type CampaignPhase =
   | "idle"
@@ -22,8 +24,12 @@ export type CampaignGroupPhase =
 export type CampaignGroupStatus = {
   id: string;
   name: string;
+  category: FacebookGroup["category"];
   status: CampaignGroupPhase;
   message?: string;
+  errorCode?: FacebookPostErrorCode;
+  startedAt?: string;
+  finishedAt?: string;
 };
 
 export type CampaignStatus = {
@@ -35,6 +41,8 @@ export type CampaignStatus = {
   currentGroupId?: string;
   delaySeconds?: number;
   message?: string;
+  startedAt?: string;
+  finishedAt?: string;
 };
 
 export type CampaignResponse =

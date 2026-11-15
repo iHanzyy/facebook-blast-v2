@@ -61,17 +61,17 @@ export function ImagePicker({
   }
 
   return (
-    <section className={`rounded-xl border border-slate-800 bg-slate-900 p-5 sm:p-6 ${disabled ? "opacity-60" : ""}`}>
+    <section className={`border border-line bg-panel px-4 py-4 sm:px-5 ${disabled ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <label className="text-sm font-medium" htmlFor="images">
-            Upload Images
+          <label className="text-sm font-semibold text-ink" htmlFor="images">
+            Foto produk
           </label>
-          <p id="images-help" className="mt-1 text-xs text-slate-500">
-            JPG, JPEG, PNG, atau WEBP. File hanya disimpan di RAM selama campaign.
+          <p id="images-help" className="mt-1 text-xs leading-5 text-muted">
+            JPG, PNG, atau WEBP · maksimal 10 file, 10 MB per file · hanya disimpan selama campaign.
           </p>
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-slate-500" aria-live="polite">
+        <span className="shrink-0 text-xs font-medium tabular-nums text-muted" aria-live="polite">
           {previews.length} dipilih
         </span>
       </div>
@@ -83,17 +83,17 @@ export function ImagePicker({
         accept={imageAccept}
         aria-describedby="images-help images-error"
         onChange={handleChange}
-        className="mt-4 block w-full rounded-lg border border-dashed border-slate-700 bg-slate-950 p-3 text-sm text-slate-400 file:mr-4 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-200 hover:file:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed"
+        className="mt-4 block w-full border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-muted file:mr-4 file:border-0 file:bg-ink file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed"
       />
       {error && (
-        <p id="images-error" role="alert" className="mt-3 text-xs text-rose-400">
+        <p id="images-error" role="alert" className="mt-3 text-xs text-rose-700">
           {error}
         </p>
       )}
       {previews.length > 0 && (
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {previews.map((preview, index) => (
-            <li key={preview.url} className="group relative aspect-square overflow-hidden rounded-lg bg-slate-950">
+            <li key={preview.url} className="group relative aspect-square overflow-hidden border border-line bg-slate-100">
               <Image
                 fill
                 unoptimized
@@ -102,7 +102,7 @@ export function ImagePicker({
                 sizes="(max-width: 640px) 50vw, 220px"
                 className="object-cover"
               />
-              <div className="absolute inset-x-0 bottom-0 truncate bg-slate-950/80 px-2 py-1.5 text-[11px] text-slate-300">
+              <div className="absolute inset-x-0 bottom-0 truncate bg-slate-950/80 px-2 py-1.5 text-[11px] text-white">
                 {preview.file.name}
               </div>
               <button
@@ -110,7 +110,7 @@ export function ImagePicker({
                 disabled={disabled}
                 onClick={() => removePreview(preview.url)}
                 aria-label={`Hapus ${preview.file.name}`}
-                className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-slate-950/80 text-sm text-white hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="absolute right-2 top-2 flex size-8 items-center justify-center bg-slate-950/80 text-sm text-white hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 ×
               </button>

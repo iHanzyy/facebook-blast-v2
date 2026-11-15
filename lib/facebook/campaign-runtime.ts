@@ -16,6 +16,7 @@ type CampaignImage = {
 };
 
 type CampaignRuntime = {
+  version: 2;
   status: CampaignStatus;
   stopRequested: boolean;
   delayAbort: AbortController | null;
@@ -34,11 +35,15 @@ const globalRuntime = globalThis as typeof globalThis & {
 };
 
 // ponytail: one in-memory campaign is enough for this local single-user app.
-const runtime = (globalRuntime.__facebookCampaignRuntime ??= {
-  status: idleStatus,
-  stopRequested: false,
-  delayAbort: null,
-});
+const runtime =
+  globalRuntime.__facebookCampaignRuntime?.version === 2
+    ? globalRuntime.__facebookCampaignRuntime
+    : (globalRuntime.__facebookCampaignRuntime = {
+        version: 2,
+        status: idleStatus,
+        stopRequested: false,
+        delayAbort: null,
+      });
 
 function isActive() {
   return runtime.status.phase === "running" || runtime.status.phase === "stopping";
@@ -99,15 +104,17 @@ export function startCampaign(input: {
   runtime.delayAbort = null;
   runtime.status = {
     phase: "running",
-    groups: input.groups.map(({ id, name }) => ({
+    groups: input.groups.map(({ id, name, category }) => ({
       id,
       name,
+      category,
       status: "pending",
     })),
     processed: 0,
     success: 0,
     failed: 0,
     message: "Campaign dimulai.",
+    startedAt: new Date().toISOString(),
   };
 
   void runCampaign(input);
@@ -128,6 +135,9 @@ async function runCampaign(input: {
       process: async (group, index) => {
         const groupStatus = runtime.status.groups[index];
         groupStatus.status = "processing";
+        groupStatus.startedAt = new Date().toISOString();
+        groupStatus.finishedAt = undefined;
+        groupStatus.errorCode = undefined;
         runtime.status.currentGroupId = group.id;
         runtime.status.delaySeconds = undefined;
         runtime.status.message = `Posting ke ${group.name}...`;
@@ -140,6 +150,7 @@ async function runCampaign(input: {
           });
           groupStatus.status = "success";
           groupStatus.message = "Berhasil diposting.";
+          groupStatus.finishedAt = new Date().toISOString();
         } catch (error) {
           const postingError =
             error instanceof FacebookPostingError
@@ -154,6 +165,8 @@ async function runCampaign(input: {
             ? "manual_action_required"
             : "failed";
           groupStatus.message = postingError.message;
+          groupStatus.errorCode = postingError.code;
+          groupStatus.finishedAt = new Date().toISOString();
           updateCounts();
           throw postingError;
         }
@@ -186,7 +199,10 @@ async function runCampaign(input: {
 
     runtime.status.currentGroupId = undefined;
     runtime.status.delaySeconds = undefined;
-    if (runtime.status.phase === "manual_action_required") return;
+    if (runtime.status.phase === "manual_action_required") {
+      runtime.status.finishedAt = new Date().toISOString();
+      return;
+    }
 
     if (result === "stopped") {
       runtime.status.phase = "stopped";
@@ -195,11 +211,13 @@ async function runCampaign(input: {
       runtime.status.phase = "completed";
       runtime.status.message = `Campaign selesai: ${runtime.status.success} berhasil, ${runtime.status.failed} gagal.`;
     }
+    runtime.status.finishedAt = new Date().toISOString();
   } catch {
     runtime.status.phase = "stopped";
     runtime.status.currentGroupId = undefined;
     runtime.status.delaySeconds = undefined;
     runtime.status.message = "Campaign berhenti karena masalah internal.";
+    runtime.status.finishedAt = new Date().toISOString();
   } finally {
     runtime.stopRequested = false;
     runtime.delayAbort = null;

@@ -144,10 +144,17 @@ export async function postToFacebookGroup(input: {
     await page.bringToFront();
 
     console.log(`[Facebook] Opening ${input.group.name}`);
-    await page.goto(input.group.url, {
-      timeout: 30_000,
-      waitUntil: "domcontentloaded",
-    });
+    try {
+      await page.goto(input.group.url, {
+        timeout: 30_000,
+        waitUntil: "domcontentloaded",
+      });
+    } catch {
+      throw new FacebookPostingError(
+        "GROUP_NAVIGATION_FAILED",
+        "Halaman grup tidak dapat dibuka. Periksa koneksi atau akses grup.",
+      );
+    }
     assertNoManualAction(page);
 
     // Prefer accessible roles and names so selectors match the visible UI.
@@ -180,23 +187,39 @@ export async function postToFacebookGroup(input: {
 
     await dialog.getByRole("textbox").fill(input.caption);
     console.log(`[Facebook] Uploading ${input.images.length} images`);
-    await setImagesThroughFileChooser(
-      page,
-      dialog.getByRole("button", {
-        name: facebookComposerNames.photo,
-        exact: true,
-      }),
-      input.images,
-    );
+    try {
+      await setImagesThroughFileChooser(
+        page,
+        dialog.getByRole("button", {
+          name: facebookComposerNames.photo,
+          exact: true,
+        }),
+        input.images,
+      );
+    } catch {
+      assertNoManualAction(page);
+      throw new FacebookPostingError(
+        "IMAGE_UPLOAD_FAILED",
+        "Gambar tidak berhasil dimuat ke composer Facebook.",
+      );
+    }
 
     console.log("[Facebook] Posting");
-    await dialog
-      .getByRole("button", {
-        name: facebookComposerNames.submit,
-        exact: true,
-      })
-      .click({ timeout: 90_000 });
-    await dialog.waitFor({ state: "hidden", timeout: 90_000 });
+    try {
+      await dialog
+        .getByRole("button", {
+          name: facebookComposerNames.submit,
+          exact: true,
+        })
+        .click({ timeout: 90_000 });
+      await dialog.waitFor({ state: "hidden", timeout: 90_000 });
+    } catch {
+      assertNoManualAction(page);
+      throw new FacebookPostingError(
+        "POST_SUBMIT_FAILED",
+        "Facebook tidak mengonfirmasi bahwa posting berhasil dikirim.",
+      );
+    }
     assertNoManualAction(page);
     console.log("[Facebook] Success");
   } catch (error) {
