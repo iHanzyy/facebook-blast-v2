@@ -7,3 +7,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Facebook group discovery
+
+Before searching, joining, or adding Facebook groups, read and follow
+`FACEBOOK_GROUP_DISCOVERY_GUIDE.md`. A group must not enter `data/groups.json`
+until the guide's composer verification gate passes.
